@@ -1,0 +1,27 @@
+digraph Grammar {
+  "(Start) bbebeebebebbebee" -> "(P1) bbebee"
+  "(Start) bbebeebebebbebee" -> "(P2) bebe"
+  "(Start) bbebeebebebbebee" -> "(P1) bbebee"
+  "(P1) bbebee" -> "b"
+  "(P1) bbebee" -> "(P2) bebe"
+  "(P1) bbebee" -> "e"
+  "(P2) bebe" -> "(P3) be"
+  "(P2) bebe" -> "(P3) be"
+  "(P3) be" -> "b"
+  "(P3) be" -> "e"
+
+  subgraph cluster_non_terminals {
+    label="NonTerminals";
+    "(Start) bbebeebebebbebee";
+    "(P1) bbebee";
+    "(P2) bebe";
+    "(P3) be";
+  }
+
+  subgraph cluster_terminals {
+    rank=same;
+    label="Terminals";
+    "b";
+    "e";
+  }
+}

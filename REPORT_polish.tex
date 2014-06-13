@@ -1,0 +1,427 @@
+% -*- compile-command: "make REPORT.pdf" -*-
+\documentclass[11pt,a4paper]{article}
+\usepackage[latin2]{inputenc}
+\usepackage[polish]{babel}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage[pdftex]{graphicx}
+\sloppy
+
+\begin{document}
+
+\title{Porównanie i implementacja algorytmów kompresji gramatykowej}
+\author{Michalis Kamburelis}
+\maketitle
+
+\section{Omówienie}
+
+Za³±czony program \texttt{grammar\_compression}
+wykonuje kompresjê / dekompresjê przy pomocy
+algorytmów gramatykowych: Sequitur oraz Sequential. Algorytm
+Ryttera nie jest zaimplementowany.
+%TODO: Rytter
+
+Dla celów testowych dostêpny jest te¿ algorytm \texttt{none} który po
+prostu konstruuje gramatykê z³o¿on± z jednej produkcji prowadz±cej
+bezpo¶rednio do odpowiedniego ci±gu terminali. Czêsto nawet taki algorytm
+pozwala uzyskaæ niewielk± kompresjê dziêki pakowaniu znaków
+na najmniejszej mo¿liwej liczbie bitów (patrz ni¿ej).
+
+Sposób u¿ycia programu, opis dozwolonych opcji itp. uzyskamy przez
+\begin{verbatim}
+  grammar_compression --help
+\end{verbatim}
+
+\subsection{Zapis tekstowy grafu gramatyki}
+
+Algorytmy kompresji oparte na gramatykach powinny mieæ t± przewagê
+nad innymi algorytmami ¿e odkrywaj± strukturê dokumentu.
+Wszystkie algorytmy kompresji w jakim¶ stopniu staraj± siê odkryæ
+strukturê dokumentu, ale algorytmy gramatykowe powinny to robiæ
+du¿o lepiej. Mo¿emy pomarzyæ o algorytmie kompresji gramatykowej
+który bêdzie w stanie zrekonstruowaæ faktyczn± gramatykê wed³ug której
+pisany by³ dokument. Np. je¶li dokument jest kodem ¼ród³owym
+to mo¿na pomarzyæ o odkryciu struktury u¿ytego jêzyka programowania.
+Odkrywanie struktury dokumentów z du¿± ilo¶æi± znaczników
+(SGML, XML) tak¿e powinno byæ mo¿liwe.
+
+Dlatego zaimplementowane jest zapisywanie uzyskanej gramatyki
+w pliku tekstowym o sk³adni zrozumia³ej przez
+\htmladdnormallink{Graphviz}{http://www.graphviz.org/}.
+Gramatyka zapisywana jest jako graf skierowany.
+
+Na przyk³ad polecenie
+\begin{verbatim}
+  grammar_compression --output-graph a.dot input_file output_file
+\end{verbatim}
+zapisze do pliku \texttt{a.dot} odkryt± gramatykê pliku input\_file.
+
+Tak zapisany graf mo¿na przetwarzaæ programami z rodziny GraphViz,
+np. polecenie
+\begin{verbatim}
+  dot -Tjpg -oa.jpg a.dot
+\end{verbatim}
+wygeneruje \texttt{a.jpg} przedstawiaj±cy graf gramatyki.
+
+Przyk³adowy graf gramatyki dla wej¶cia \texttt{bbebeebebebbebee}
+(przyk³ad z wyk³adu o algorytmach gramatykowych):
+
+\includegraphics[width=60mm]{REPORT-sample-sequitur-graph.jpg}
+
+Uwaga: Rysunek \texttt{a.jpg} przedstawia tylko jaki nieterminal u¿ywa jakich
+symboli (nieterminali lub terminali) i ile razy. Natomiast informacja o tym
+w jakiej kolejno¶æi symbole s± sk³adane nie jest pokazana na grafie
+(bo nie ma jak jej przejrzy¶cie pokazaæ --- musieliby¶my albo krzy¿owaæ
+strza³ki, albo duplikowaæ wêz³y, co szybko doprowadzi³oby do nieprzejrzystych
+rysunków; pomiñmy tu fakt ¿e trochê nadu¿ywam tu pojêcia grafu ---
+w ,,prawdziwych grafach'' krawêdzie nie maj± ustalonej kolejno¶ci,
+a my próbujemy w³a¶nie tak± kolejno¶æ pokazaæ).
+Je¶li chcemy zobaczyæ kolejno¶æ u¿ywania symboli musimy spojrzeæ
+na zapis w pliku \texttt{a.dot}.
+
+Uwaga 2: zapisywanie grafu gramatyki dla du¿ych gramatyk jest
+stosunkowo wolne (g³ównie dlatego ¿e plik tekstowy opisuj±cy t±
+gramatykê jest po prostu bardzo du¿y). Wiêc szybko¶æ programu
+przy zapisie gramatyki nie powinna byæ w ¿adnym wypadku odnoszona
+do szybko¶ci kompresji przy pomocy algorytmów gramatykowych.
+
+\subsection{Zapis binarny gramatyki (czyli faktyczna kompresja)}
+
+Aby praktycznie zmierzyæ jako¶æ kompresji gramatyka jest zapisywana w prostym
+formacie binarnym. Nie u¿ywam kodowania gramatyki NMW, poniewa¿
+mo¿e ono dawaæ wiêkszy rozmiar pliku skompresowanego (zalet±
+kodowania NMW jest ³atwa mo¿liwo¶æ rozpoczêcia dekompresji
+ju¿ w trakcie czytania skompresowanego pliku, ale to nie by³o mi potrzebne).
+
+Szczegó³y:
+\begin{enumerate}
+  \item
+    Wszystkim nieterminalom (czyli produkcjom) nadajê indeksy
+    poczynaj±c od 0. Symbol startowy otrzymuje indeks 0.
+    Pó¼niej wszystkim \emph{u¿ywanym w kodowanym tek¶cie}
+    terminalom przydzielam nastêpne wolne indeksy.
+
+  \item
+    Na pocz±tku pliku zapisujê liczbê produkcji (4 bajty).
+    Pó¼niej zapisujê tablicê bitow± jakie znaki zosta³y u¿yte
+    jako terminale (256 / 8 = 32 bajtów).
+    W ten sposób ka¿dy skompresowany plik otrzymuje nag³ówek 36 bajtów.
+    Na podstawie tego nag³ówka przy dekompresowaniu wiem ile produkcji
+    zosta³o u¿ytych i wiem jakie terminale zosta³y u¿yte i jestem
+    w stanie odtworzyæ jakie indeksy zosta³y przydzielone poszczególnym
+    terminalom.
+
+    Oczywi¶cie, dla bardzo ma³ych plików 32-bajtowy nag³ówek pliku mo¿e ³atwo
+    sprawiæ ¿e plik ,,skompresowany'' bêdzie wiêkszy od pliku ¼ród³owego.
+    W realnym programie kompresuj±cym mo¿naby to ³atwo obej¶æ
+    \footnote{Najpro¶ciej: je¿eli zachodzi patologiczny przypadek to
+    mo¿emy zapisaæ specjaln± warto¶æ w pierwszym bajcie pliku, po czym zapisaæ
+    zwyczajn± nieskompresowan± zawarto¶æ pliku --- w ten sposób
+    narzut pliku skompresowanego nie mo¿e nigdy przekroczyæ 1 bajtu.}
+    ale w naszym programie testowym jest to niepo¿±dane, w koñcu
+    sprawdzamy algorytmy generuj±ce gramatykê a wiêc
+    chcemy mieæ zawsze zapis gramatyki.
+
+  \item
+    Pó¼niej zapisujê ka¿d± produkcjê jako ci±g indeksów (nieterminali
+    i terminali). Koniec ka¿dej produkcji oznaczam indeksem 0
+    (który w zasadzie jest indeksem produkcji startowej, ale wiem
+    ¿e nieterminal startowy nie móg³ wyst±piæ po prawej stronie
+    ¿adnej produkcji, wiêc mogê go tutaj u¿yæ jako specjalny indeks
+    rozdzielaj±cy produkcje).
+
+  \item
+    Aby zobaczyæ ci±g indeksów zapisywanych mo¿na skompilowaæ
+    program z symbolem \texttt{DEBUG\_BINARY\_SAVE} zdefiniowanym.
+
+  \item
+    Do³o¿y³em starañ ¿eby u¿yæ jak najmniej (i jak najmniejszych) indeksów.
+    Dodatkowo indeksy s± zapisywane na jak najmniejszej liczbie bitów:
+    na pocz±tku przy zapisywaniu obliczam ile bitów bêdê maksymalnie
+    potrzebowa³ na najwiêkszy mo¿liwy indeks, po czym na ka¿dy indeks
+    zu¿ywam sta³± liczbê bitów.
+
+    Np. je¿eli gramatyka u¿ywa tylko jednej produkcji (a wiêc produkcja
+    startowa) oraz trzech nieterminali, to potrzebujê tylko 2 bitów
+    na ka¿dy indeks (liczbê z zakresu 0 \ldots 3). Wiêc zmieszczê 4 indeksy
+    w jednym bajcie pliku.
+
+    To proste kodowanie sprawia ¿e nawet gdy faktyczny algorytm
+    kompresji wygeneruje beznadziejn± gramatykê (np. tylko jedna produkcja,
+    która zwyczajnie rozwija siê w odpowiedni ci±g terminali)
+    to i tak uzyskujemy pewn± kompresjê je¿eli plik u¿ywa³
+    niewielu znaków.
+
+    Pakowanie indeksów na bity jest realizowane w module \texttt{bitstreams.pas}.
+\end{enumerate}
+
+\section{Uwagi o kompilowaniu i kodzie ¼ród³owym}
+
+\begin{itemize}
+  \item
+    W archiuwm za³±czam skompilowan± wersjê pod Linuxa.
+
+  \item
+    Kompilowaæ wszystko nale¿y u¿ywaj±c
+    \htmladdnormallink{FreePascala}{http://www.freepascal.org/}, wersja >= 2.0.2.
+    Testowa³em pod Linuxem, chocia¿ ca³y kod jest przeno¶ny
+    i powinien te¿ kompilowaæ siê i dzia³aæ pod innymi Unixami i Windowsem.
+    Kompilowaæ mo¿na u¿ywaj±c poleceñ
+
+\begin{verbatim}
+  make build-debug
+\end{verbatim}
+
+    albo
+
+\begin{verbatim}
+  make build-release
+\end{verbatim}
+
+  \item
+    W katalogu \texttt{apidoc/} znajduje siê dokumentacja modu³ów
+    wygenerowana przez \htmladdnormallink{pasdoc}{http://pasdoc.sourceforge.net/}.
+
+  \item
+    Pliki w katalogu \texttt{units/} zawieraj± czê¶æ moich modu³ów
+    ogólnego przeznaczenia w ObjectPascalu, które wykorzysta³em w tym
+    projekcie. Aktualn± wersjê i dkoumentacjê tych modu³ów zawsze mo¿na znale¼æ na
+    \htmladdnormallink{mojej stronie WWW}{http://www.camelot.homedns.org/~michalis/}.
+
+\end{itemize}
+
+\section{Szczegó³y implementacji}
+
+¬ród³a s± opatrzone komentarzami, wiêc poni¿ej wymieniê tylko bardziej
+ogólne i znacz±ce uwagi/problemy/pu³apki.
+
+\subsection{Sequitur i Sequential}
+
+Problemem zas³uguj±cym na uwagê jest rekurencyjno¶æ wszystkich
+operacji poprawiaj±cych. Dodawanie digramu mo¿e spowodowaæ
+podstawienie produkcji i rozwiniêcie produkcji, a podstawienie
+i rozwiniêcie mog± powodowaæ dodawanie digramów. W zwi±zku z czym
+musimy pisaæ bardzo ostro¿nie, bo ka¿da operacja potencjalnie
+zmieni postaæ produkcji na której aktualnie pracujemy.
+Np. prosty kod sprawdzaj±cy ,,bezu¿yteczno¶æ'' produkcji
+i ew. rozwijaj±cy je wygl±da³ w naiwnej wersji tak:
+
+\begin{verbatim}
+  ExpandIfUnderusedProduction(NewProduction.FirstSymbol);
+  ExpandIfUnderusedProduction(NewProduction.LastSymbol);
+\end{verbatim}
+
+W pierwszym podej¶ciu, aby mieæ pewno¶æ ¿e kod jest poprawny,
+musia³em go rozwin±æ do
+
+\begin{verbatim}
+if ExpandIfUnderusedProduction(NewProduction.FirstSymbol, false) then
+  ExpandIfUnderusedProduction(NewProduction.LastSymbol, true);
+\end{verbatim}
+
+po czym, kiedy udowodni³em sobie ¿e drugi symbol nigdy nie bêdzie
+potrzebowa³ rozwiniêcia (patrz pod koniec implementacji \texttt{CorrectDigraph}),
+kod zosta³ zmieniony do prostego
+
+\begin{verbatim}
+  ExpandIfUnderusedProduction(NewProduction.FirstSymbol);
+\end{verbatim}
+
+Podobna sytuacja zachodzi pod koniec \texttt{Substitute} gdy musimy wywo³aæ
+\texttt{CorrectDigraph} dwa razy (poniewa¿ wstawienie symbolu tworzy
+dwa nowe digramy, przed i po wstawionym symbolu). Naiwny kod
+wygl±da tak:
+
+\begin{verbatim}
+  CorrectDigraph(S1);
+  CorrectDigraph(S2);
+\end{verbatim}
+
+ale w praktyce musimy napisaæ
+
+\begin{verbatim}
+if CorrectDigraph(S1) then
+  CorrectDigraph(S2);
+\end{verbatim}
+
+Co oznacza ¿e je¿eli wstawienie S1 spowodowa³o rekurencyjne wywo³anie
+\texttt{Substitute}, to nie wstawiamy ju¿ drugiego digramu.
+Patrz komentarze pod koniec \texttt{Substitute} po uzasadnienie
+dlaczego tak jest poprawnie (tzn. wbrew pozorom nie naruszamy ¿adnej
+w³a¶ciwo¶ci algorytmu, digram S2 tak naprawdê zostanie dodany;
+ponadto mamy gwarancjê ¿e nie bêdziemy operowaæ na S2 po pierwszym
+\texttt{CorrectDigraph(S1)}, które de facto mo¿e sprawiæ ¿e
+obiekt S2 ju¿ nie bêdzie istnia³).
+
+Konsekwencj± dwóch powy¿szych sytuacji jest np. fakt ¿e
+\texttt{CorrectDigraph} zwraca warto¶æ boolowsk± (zamiast byæ
+zwyk³± procedur± która kompletnie ,,ukrywa'' wykonywane przez siebie
+modyfikacje na gramatyce), oraz ¿e metoda
+DeleteDigraph nie mo¿e zawieraæ asercji w rodzaju ,,usuwany digram
+musi istnieæ w tablicy''.
+
+\section{Testy}
+
+\subsection{Testy poprawno¶ci}
+
+Skrypt \texttt{mk\_test.sh}, wspomagaj±c siê programem \texttt{mk\_test\_file.dpr},
+wykonuje automatyczne testy. Produkowane s± pliki
+o ró¿nych rozmiarach i u¿ywaj±ce ró¿nej ilo¶ci losowych znaków.
+Ka¿dy taki plik jest kompresowany (ka¿dym dostêpnym algorytmem),
+nastêpnie dekompresowany i wynik dekompresji jest porównywany z
+oryginalnym plikiem.
+
+Oczywi¶cie program przechodzi powy¿sze testy dla wszystkich
+algorytmów.
+
+\subsection{Testy jako¶ci i szybko¶ci kompresji}
+
+Pliki testowe:
+\begin{enumerate}
+  \item Pliki \texttt{test\_binary\_N} dla N = 10 tysiêcy, 100 tysiêcy,
+    milion: pliki binarne losowe, ka¿dy wygenerowany przez
+    \texttt{mk\_test\_file 256 N > test\_binary\_N}.
+    Intuicyjnie: pliki najtrudniej kompresowalne (dla wszystkich
+    algorytmów, nie tylko gramatykowych).
+
+  \item Pliki HTML: \texttt{kompresja06.html}
+    --- z \htmladdnormallink{http://www.ii.uni.wroc.pl/{\textasciitilde}tju/KomprDz06/kompresja06.html}{http://www.ii.uni.wroc.pl/~tju/KomprDz06/kompresja06.html},
+    czyli plik HTML prosty,
+    \texttt{kompresja\_danych\_table.html} ---
+    z \htmladdnormallink{http://www.ii.uni.wroc.pl/{\textasciitilde}marcinm/dyd/kompresja/}{http://www.ii.uni.wroc.pl/~marcinm/dyd/kompresja/},
+    obciêty tylko do tabelki (od \texttt{<table>} do
+    \texttt{<{\textbackslash}table>}),
+    czyli plik HTML z regularn± tabel±,
+    \texttt{google\_result.html} --- wynik googla dla \texttt{fpc},
+    czyli plik HTML nieregularny, du¿o niezwi±zanego tekstu ---
+    powinien byæ trudniejszy do kompresji od poprzednich dwóch.
+
+  \item Pliki ¼ród³owe: w Pascalu \texttt{seqcompression.pas},
+    w C \texttt{SDL\_error.c} (do¶æ nieregularny (jak to w C) plik z SDL).
+\end{enumerate}
+
+\subsubsection{Testy jako¶ci kompresji}
+
+Legenda do kolumn w tabelce poni¿ej:
+\begin{enumerate}
+  \item Nazwa pliku.
+
+  \item Rozmiar oryginalny (w bajtach).
+
+  \item Stopieñ kompresji, czyli ,,rozmiar skompresowany''
+    / ,,rozmiar oryginalny''.
+\end{enumerate}
+
+Uwagi:
+\begin{itemize}
+  \item
+    Ostatnia kolumna zawiera zawsze 3 warto¶æi, dla ka¿dego
+    algorytmu: \texttt{none} (dla porównania), \texttt{sequitur},
+    \texttt{sequential}.
+    %TODO: Rytter
+  \item
+    Dla algorytmu Sequential czas dzia³ania by³ bardzo du¿y dla wiêkszych
+    danych (\texttt{test\_binary\_100000} i \texttt{test\_binary\_100000})
+    wiêc nie przeprowadzi³em testów.
+\end{itemize}
+
+\begin{tabular}{|l|r|lll|}
+\hline
+test\_binary\_10000           & 10000    & 1.13 & 1.32 & 1.32 \\ \hline
+test\_binary\_100000          & 100000   & 1.13 & 1.87 & ?    \\ \hline
+test\_binary\_1000000         & 1000000  & 1.13 & 1.43 & ?    \\ \hline
+kompresja06.html              & 2458     & 0.89 & 0.43 & 0.41 \\ \hline
+kompresja\_danych\_table.html & 41676    & 0.88 & 0.04 & 0.04 \\ \hline
+google\_result.html           & 20893    & 0.88 & 0.52 & 0.49 \\ \hline
+seqcompression.pas            & 12076    & 0.88 & 0.48 & 0.44 \\ \hline
+SDL\_error.c                  & 7578     & 0.88 & 0.58 & 0.55 \\ \hline
+\end{tabular}
+
+\subsubsection{Testy szybko¶ci kompresji}
+
+Legenda do kolumn w tabelce poni¿ej:
+\begin{enumerate}
+  \item Nazwa pliku.
+
+  \item Szybko¶æ kompresji. Mierzona jako iloraz: rozmiar oryginalny /
+    czas kompresji w sekundach.
+    Czyli ,,ile bajtów na sekundê kompresujesz''. Podana w tysi±cach (,,k'').
+
+  \item Szybko¶æ dekompresji. Mierzona jak wy¿ej, czyli
+    ,,ile bajtów na sekundê dekompresujesz''.
+    Uwaga: algorytm dekompresji jest zawsze taki sam,
+    dla wszystkich algorytmów kompresji (bo w pliku zapisana jest tylko
+    gramatyka). Ale byæ mo¿e gramatyki produkowane przez niektóre algorytmy
+    s± prostsze do dekompresji ?
+\end{enumerate}
+
+Uwagi:
+\begin{itemize}
+  \item Jak powy¿ej, dla testów jako¶ci: podane s± 3 czasy dla 3 algorytmów.
+    Algorytm Sequential dzia³a³ zbyt d³ugo wiêc w niektórych miejscach ma ,,?''.
+  \item
+    Testy by³y przeprowadzone dla programu skompilowanego z
+    \texttt{PRECISE\_MEASURE\_TIME} (patrz ¼ród³a \texttt{grammar\_compression.dpr}),
+    ka¿dy test by³ wykonany 10 razy i wypisane czasy s± liczone tak aby byæ ¶redni±
+    ze wszystkich testów.
+\end{itemize}
+
+\begin{tabular}{|l|lll|lll|}
+\hline
+test\_binary\_10000           & 322 k & 138 k & 12 k  & 909 k  & 769 k  & 833 k        \\ \hline
+test\_binary\_100000          & 336 k & 139 k & ?     & 1030 k & 584 k  & ? \\ \hline
+test\_binary\_1000000         & 323 k & 59 k  & ?     & 1071 k & 320 k  & ?  \\ \hline
+kompresja06.html              & 351 k &  59 k & 39 k  & 614 k  & 819 k  & 2458 k       \\ \hline
+kompresja\_danych\_table.html & 400 k & 217 k & 356 k & 1096 k & 8335 k & 10419 k      \\ \hline
+google\_result.html           & 373 k & 155 k & 10 k  & 409 k  & 1899 k & 1741 k       \\ \hline
+seqcompression.pas            & 389 k & 143 k & 17 k  & 1006 k & 575 k  & 1725 k       \\ \hline
+SDL\_error.c                  & 378 k & 118 k & 19 k  & 947 k  & 1263 k & 1263 k       \\ \hline
+\end{tabular}
+
+\subsubsection{Wnioski}
+
+\begin{itemize}
+  \item
+    Patrz±c na linie dla plików \texttt{test\_binary\_N} widaæ
+    jasno ¿e algorytmy gramatykowe s± dla nich nieop³acalne: stopnie kompresji
+    s± gorsze nawet od algorytmu \texttt{none}.
+    Algorytm \texttt{none} ma stopieñ kompresji > 1 poniewa¿ zu¿ywa
+    9 bitów na 1 znak (poniewa¿ koduje 256 znaków + znak koñca produkcji,
+    a wiêc potrzebne 9 bitów).
+  \item
+    Algorytm Sequential nie wypad³ najlepiej jako ulepszenie Sequitur.
+    Jego stopnie kompresji s± tylko minimalnie lepsze od Sequitur,
+    a czas kompresji jest zazwyczaj znacznie gorszy od Sequitur.
+  \item
+    Algorytm Sequitur: dla plików tekstowych osi±ga dobr± kompresjê,
+    tzn. oko³o dwa razy w porównaniu z algorytmem \texttt{none}.
+    Czas kompresji mo¿na uznaæ za dobry --- 2--3 dla dobrych plików.
+    Inna sprawa ¿e tradycyjnie u¿ywane algorytmy s³ownikowe
+    radz± sobie du¿o lepiej, i z jako¶ci± i z szybko¶ci± kompresji.
+  \item
+    Na uwagê zas³uguje kompresja pliku \texttt{kompresja\_danych\_table.html}:
+    wynik algorytmów gramatykowych jest ¶wietny, stopieñ kompresji wynosi 0.04.
+    Patrz±c na graf wygenerowany przez
+\begin{verbatim}
+grammar_compression kompresja_danych_table.html -g a.dot
+\end{verbatim}
+    widzimy du¿o skojarzeñ.
+  \item
+    Niestety, nawet w przypadku \texttt{kompresja\_danych\_table.html},
+    wygenerowana gramatyka nie przypomina w ¿aden sposób naszej
+    ,,oryginalnej'' gramatyki, tzn. struktury HTMLa.
+    Marzenia o odkryciu gramatyki HTMLa
+    lub jêzyka programowania sprzed kilku stron okazuj± siê nierealne.
+
+    Aby algorytm kompresji gramatykowej
+    dzia³a³ naprawdê dobrze, nale¿a³oby go bardziej dostosowaæ
+    do konkretnych danych. Np. uj±æ a algorytmie stwierdzenia:
+    \begin{itemize}
+      \item Ilo¶æ bia³ych znaków nie ma znaczenia.
+      \item Znaczniki HTMLa zazwyczaj wystêpuj± w parach --- otwieraj±cy
+        i zamykaj±cy. W przypadku XML ,,zazwyczaj'' mo¿emy zmieniæ
+        na ,,zawsze''.
+    \end{itemize}
+\end{itemize}
+
+\end{document}
