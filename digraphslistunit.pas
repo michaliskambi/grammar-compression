@@ -23,14 +23,10 @@ unit DigraphsListUnit;
 
 interface
 
-uses SysUtils, KambiUtils, KambiClassUtils, Grammar;
-
-{$define read_interface}
+uses SysUtils, FGL, CastleUtils, CastleClassUtils, Grammar;
 
 type
-  TObjectsListItem_1 = TSymbol;
-  {$I objectslist_1.inc}
-  TSymbolsList = TObjectsList_1;
+  TSymbolsList = specialize TFPGObjectList<TSymbol>;
 
   { List of digraphs.
 
@@ -48,7 +44,7 @@ type
   private
     Items: TSymbolsList;
     { This is important only where Items[I] = nil }
-    ItemsDeleted: TDynBooleanArray;
+    ItemsDeleted: TBooleanList;
 
     { Find digraph starting with S1 (exactly S1, it compares references). }
     function IndexOfExactDigraph(S1: TSymbol): Integer;
@@ -81,20 +77,15 @@ type
     procedure AddDigraph(S: TSymbol);
   end;
 
-{$undef read_interface}
-
 implementation
-
-{$define read_implementation}
-{$I objectslist_1.inc}
 
 const
   HashArraySize = 2265539;
 
-function SymbolValue(S: TSymbol): TPointerUInt;
+function SymbolValue(S: TSymbol): PtrUInt;
 begin
   if S is TNonTerminal then
-    Result := TPointerUInt(TNonTerminal(S).Production) else
+    Result := PtrUInt(TNonTerminal(S).Production) else
     Result := Ord(TTerminal(S).Value);
 end;
 
@@ -119,12 +110,12 @@ constructor TDigraphsList.Create;
 begin
   inherited;
 
-  Items := TSymbolsList.Create;
+  Items := TSymbolsList.Create(false);
   Items.Count := HashArraySize;
 
-  ItemsDeleted := TDynBooleanArray.Create;
+  ItemsDeleted := TBooleanList.Create;
   ItemsDeleted.Count := HashArraySize;
-  ItemsDeleted.SetAll(false);
+  // ItemsDeleted.SetAll(false); // cleared automatically
 end;
 
 destructor TDigraphsList.Destroy;

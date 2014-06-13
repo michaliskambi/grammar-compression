@@ -1,17 +1,18 @@
-FPC_DEBUG := fpc -dDEBUG @units/kambi.cfg
-FPC_RELEASE := fpc -dRELEASE @units/kambi.cfg
+FPC_OPTIONS := $(shell $(CASTLE_ENGINE_PATH)castle_game_engine/scripts/castle_engine_fpc_options)
+FPC_DEBUG := fpc -dDEBUG $(FPC_OPTIONS)
+FPC_RELEASE := fpc -dRELEASE $(FPC_OPTIONS)
 
 default: build-debug
 
 .PHONY: build-debug
 build-debug:
-	$(FPC_DEBUG) grammar_compression.dpr
-	$(FPC_DEBUG) mk_test_file.dpr
+	$(FPC_DEBUG) grammar_compression.lpr
+	$(FPC_DEBUG) mk_test_file.lpr
 
 .PHONY: build-release
 build-release:
-	$(FPC_RELEASE) grammar_compression.dpr
-	$(FPC_RELEASE) mk_test_file.dpr
+	$(FPC_RELEASE) grammar_compression.lpr
+	$(FPC_RELEASE) mk_test_file.lpr
 
 REPORT.pdf: REPORT.tex
 	pdflatex --file-line-error-style -interaction=nonstopmode REPORT.tex

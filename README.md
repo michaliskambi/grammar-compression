@@ -12,4 +12,10 @@ This repository contains the full sources (for FPC
 units http://castle-engine.sourceforge.net/engine.php ).
 And it contains REPORT.pdf (describing usage and some details).
 
+Compilation:
+* Make sure to define $CASTLE_ENGINE_PATH to point to castle_game_engine/
+  directory. Get if from http://castle-engine.sourceforge.net/engine.php .
+* Compile by simple "make".
+* Usage is described in REPORT.pdf
+
 License: GNU GPL >= 2.

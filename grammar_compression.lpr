@@ -9,9 +9,9 @@
 
 program grammar_compression;
 
-uses SysUtils, Classes, KambiUtils, KambiClassUtils,
-  Grammar, ParseParametersUnit, KambiFilesUtils,
-  SeqCompression;
+uses SysUtils, Classes, CastleUtils, CastleClassUtils,
+  CastleParameters, CastleFilesUtils, CastleTimeUtils,
+  Grammar, SeqCompression;
 
 procedure CompressNone(StartProduction: TProduction; InputStream: TStream);
 var
@@ -198,7 +198,7 @@ var
   BytesPerSecond: string;
 begin
   { Parse parameters }
-  ParseParameters(Options, OptionProc, nil);
+  Parameters.Parse(Options, @OptionProc, nil);
   case Parameters.High of
     0: raise EInvalidParams.Create('input_filename parameter missing');
     1: begin

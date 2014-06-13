@@ -3,7 +3,7 @@
 { Generate on stdout $2 characters, taken from random pool of
   $1 distinct characters. }
 
-uses SysUtils, KambiUtils;
+uses SysUtils, CastleUtils, CastleParameters;
 
 var
   CharsToUse: array [Byte] of char;

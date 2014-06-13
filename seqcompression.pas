@@ -32,7 +32,7 @@ procedure CompressSequential(var StartProduction: TProduction;
 
 implementation
 
-uses SysUtils, DigraphsListUnit, KambiClassUtils, KambiStringUtils;
+uses SysUtils, DigraphsListUnit, CastleClassUtils, CastleStringUtils;
 
 var
   DigraphsList: TDigraphsList;
@@ -310,7 +310,7 @@ begin
 
   Buffer := ReadGrowingStreamToString(InputStream);
 
-  AllProductionsList := TProductionsList.Create;
+  AllProductionsList := TProductionsList.Create(false);
   try
     AllProductionsList.Add(StartProduction);
 
@@ -320,7 +320,7 @@ begin
       begin
         { search longest prefix of Buffer within productions. }
         MaxPrefixLength := 0;
-        for I := 0 to AllProductionsList.High do
+        for I := 0 to AllProductionsList.Count - 1 do
         begin
           if IsPrefix(AllProductionsList[I].CollectedValue, Buffer, false) and
              (Length(AllProductionsList[I].CollectedValue) > MaxPrefixLength) then

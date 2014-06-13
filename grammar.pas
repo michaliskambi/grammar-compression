@@ -23,9 +23,8 @@ unit Grammar;
 
 interface
 
-uses Classes, SysUtils, KambiUtils, KambiClassUtils, KambiStringUtils;
-
-{$define read_interface}
+uses Classes, SysUtils, CastleUtils, CastleClassUtils, CastleStringUtils,
+  FGL;
 
 type
   TSymbol = class;
@@ -162,9 +161,7 @@ type
     procedure SimpleCalculateCollectedValue;
   end;
 
-  TObjectsListItem_1 = TProduction;
-  {$I objectslist_1.inc}
-  TProductionsList = class(TObjectsList_1);
+  TProductionsList = class(specialize TFPGObjectList<TProduction>);
 
   { Terminal or non-terminal symbol of the grammar.
 
@@ -283,14 +280,9 @@ var
     this (Sequential does). }
   AllProductionsList: TProductionsList;
 
-{$undef read_interface}
-
 implementation
 
 uses BitStreams;
-
-{$define read_implementation}
-{$I objectslist_1.inc}
 
 { Convert unreadable characters in AValue and transform to valid
   quoted ID for graphviz. }
@@ -342,7 +334,7 @@ var
   Tmp: TSymbol;
 begin
   if AllProductionsList <> nil then
-    AllProductionsList.Delete(Self);
+    AllProductionsList.Remove(Self);
 
   if Guard <> nil then
   begin
@@ -582,7 +574,7 @@ var
   I: Integer;
   C: char;
 begin
-  ProductionsList := TProductionsList.Create;
+  ProductionsList := TProductionsList.Create(false);
   try
     FirstIndex := 0;
     Collect(FirstIndex, LongNonTerminalNames, ProductionsList, UsedTerminals);
@@ -656,7 +648,7 @@ var
   I: Integer;
   S: TSymbol;
 begin
-  ProductionsList := TProductionsList.Create;
+  ProductionsList := TProductionsList.Create(false);
   try
     FirstIndex := 0;
     Collect(FirstIndex, false, ProductionsList, UsedTerminals);
@@ -681,7 +673,7 @@ begin
       {$ifdef DEBUG_BINARY_SAVE}
       Writeln('save BitsPerValue will be ', StreamBitWriter.BitsPerValue);
       {$endif}
-      for I := 0 to ProductionsList.High do
+      for I := 0 to ProductionsList.Count - 1 do
       begin
         S := ProductionsList[I].FirstSymbol;
         while S <> ProductionsList[I].Guard do
@@ -743,14 +735,14 @@ var
 begin
   Create;
 
-  ProductionsList := TProductionsList.Create;
+  ProductionsList := TProductionsList.Create(false);
   try
     ProductionsList.Count := StreamReadLongWord(Stream);
     {$ifdef DEBUG_BINARY_LOAD}
     Writeln('load ProductionsList.Count ', ProductionsList.Count);
     {$endif}
     ProductionsList[0] := Self;
-    for I := 1 to ProductionsList.High do
+    for I := 1 to ProductionsList.Count - 1 do
       ProductionsList[I] := TProduction.Create;
 
     Stream.ReadBuffer(UsedTerminals, SizeOf(UsedTerminals));
@@ -772,7 +764,7 @@ begin
       Writeln('load BitsPerValue will be ', StreamBitReader.BitsPerValue);
       {$endif}
 
-      for I := 0 to ProductionsList.High do
+      for I := 0 to ProductionsList.Count - 1 do
       begin
         repeat
           SymbolIndex := StreamBitReader.ReadValue;
@@ -809,7 +801,7 @@ end;
 
 function TProduction.Name: string;
 begin
-  Result := 'Production $' + IntToHex(TPointerUInt(Pointer(Self)), 8);
+  Result := 'Production $' + IntToHex(PtrUInt(Pointer(Self)), 8);
 end;
 
 { TSymbol -------------------------------------------------------------------- }

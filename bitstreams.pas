@@ -84,7 +84,7 @@ function BitsPerSymbolFromMaxValue(const MaxValue: Cardinal): Cardinal;
 
 implementation
 
-uses KambiUtils, KambiClassUtils;
+uses CastleUtils, CastleClassUtils;
 
 function BitsPerSymbolFromMaxValue(const MaxValue: Cardinal): Cardinal;
 begin
