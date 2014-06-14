@@ -1,2 +1,5 @@
 grammar_compression
 mk_test_file
+REPORT.aux
+REPORT.log
+REPORT.out

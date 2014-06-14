@@ -27,14 +27,12 @@ pasdoc:
 	mkdir -p apidoc/
 	pasdoc *.pas --auto-abstract --auto-link \
 	  --title="grammar_compression units" \
-	  --output=apidoc/ \
-	  -I units/base/ -I units/base/templates/
+	  --output=apidoc/
 
 # Clean things not intended to be inside dist, and at the same time
 # things that can be remade.
 .PHONY: clean-common
 clean-common:
-	$(MAKE) -C units/ cleanmore
 	rm -f *.ppu *.o *~ grammar_compression.tar.gz \
 	  REPORT.aux REPORT.log REPORT.out REPORT.dvi
 
